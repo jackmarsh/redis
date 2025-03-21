@@ -2,7 +2,8 @@ def redis_stack(name:str, version:str, os=None, arch=None, hashes:list=[], visib
     """
     Builds Redis Stack binaries from source for a specific OS and architecture.
 
-        Args:
+    Hashes can be found here: https://github.com/redis/redis-hashes
+    Args:
         name (str): Name of the rule.
         version (str): PostgreSQL version to build.
         os (str): Target operating system. Defaults to the current OS.
