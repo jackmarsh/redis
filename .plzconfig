@@ -1,0 +1,12 @@
+[please]
+version = 17.8.7
+
+[Plugin "cc"]
+Target = //plugins:cc
+LDTool = ld
+
+[Plugin "shell"]
+Target = //plugins:shell
+
+[PluginDefinition]
+name = redis

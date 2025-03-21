@@ -1,0 +1,98 @@
+def redis_stack(name:str, version:str, os=None, arch=None, hashes:list=[], visibility:list=[], _compress:bool=False):
+    """
+    Builds Redis Stack binaries from source for a specific OS and architecture.
+
+        Args:
+        name (str): Name of the rule.
+        version (str): PostgreSQL version to build.
+        os (str): Target operating system. Defaults to the current OS.
+        arch (str): Target architecture. Defaults to the current architecture.
+        hashes (list): Optional hashes to verify the download.
+        visibility (list): Visibility declaration for the rule.
+    """
+    # TODO: statically link with musl
+    if not os:
+        if CONFIG.OS == 'linux':
+            os = 'linux'
+        elif CONFIG.OS == 'darwin':
+            os = 'osx'
+        else:
+            raise ParseError(f'Unknown OS {CONFIG.OS}, you must pass explitly')
+    if not arch:
+        if CONFIG.ARCH == 'amd64':
+            arch = 'x86_64'
+        elif CONFIG.ARCH == 'x86':
+            arch = 'i686'
+        else:
+            raise ParseError(f'Unknown architecture {CONFIG.ARCH}, you must pass explitly')
+
+    target = f'{os}_{arch}'
+    url = f"https://download.redis.io/releases/redis-{version}.tar.gz"
+    download = remote_file(
+        name=tag(name, f"download_{target}"),
+        url=url,
+        hashes=hashes,
+    )
+    extract = build_rule(
+        name=tag(name, f"extract_{target}"),
+        srcs=[download],
+        outs=[f'redis-{version}-{target}'],
+        cmd =  ' && '.join([
+            'tar -xzf $SRC',
+            f'mv redis-{version} $OUT'
+        ]),
+        building_description = f'Extracting Redis v{version} for {target}...',
+    )
+    install = build_rule(
+        name=tag(name, f"install_{target}"),
+        srcs=[extract],
+        outs={
+            'redis-server': [f'{target}/redis/redis-server'],
+            'redis-cli': [f'{target}/redis/redis-cli'],
+            'redis-sentinel': [f'{target}/redis/redis-sentinel'],
+            'redis-benchmark': [f'{target}/redis/redis-benchmark'],
+            'redis-check-aof': [f'{target}/redis/redis-check-aof'],
+            'redis-check-rdb': [f'{target}/redis/redis-check-rdb'],
+        },
+        cmd = ' && '.join([
+            f'mkdir -p {target}/redis',
+            'cd $SRC',
+            'make BUILD_TLS=yes CFLAGS="-fno-lto" LDFLAGS="-fno-lto"', # TODO: configure
+            f'mv src/redis-server $HOME/{target}/redis',
+            f'mv src/redis-cli $HOME/{target}/redis',
+            f'mv src/redis-sentinel $HOME/{target}/redis',
+            f'mv src/redis-benchmark $HOME/{target}/redis',
+            f'mv src/redis-check-aof $HOME/{target}/redis',
+            f'mv src/redis-check-rdb $HOME/{target}/redis',
+            'cd $HOME',
+        ]),
+        building_description = f'Installing Redis Stack v{version} for {target}',
+    )
+    if _compress:
+        tarball(
+            name=name,
+            out=f'redis-{version}-{target}.tar.gz',
+            srcs=[
+                install + '|redis-server',
+                install + '|redis-cli',
+                install + '|redis-sentinel',
+                install + '|redis-benchmark',
+                install + '|redis-check-aof',
+                install + '|redis-check-rdb',
+            ],
+        )
+    else:
+        filegroup(
+            name=name,
+            srcs=[
+                install + '|redis-server',
+                install + '|redis-cli',
+                install + '|redis-sentinel',
+                install + '|redis-benchmark',
+                install + '|redis-check-aof',
+                install + '|redis-check-rdb',
+            ],
+            deps = [install],
+            binary=True,
+            visibility=visibility,
+        )
