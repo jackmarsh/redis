@@ -10,9 +10,10 @@ These are intended for use in sandboxed or hermetic build systems (like Please),
 
 ## ✅ Available Versions
 
-| Redis Stack Version | Supported OS | Supported Architecture | Download Link |
-|---------------------|--------------|-------------------------|---------------|
-| 7.4.2               | Linux        | x86_64                 | [Download](https://github.com/jackmarsh/redis/releases/download/v0.0.1/redis-7.4.2-linux_x86_64.tar.gz) |
+| Redis Stack Version | Supported OS | C Library | Architecture | Download Link |
+|---------------------|--------------|-----------|--------------|---------------|
+| 7.4.2               | Linux        | glibc     | x86_64       | [Download](https://github.com/jackmarsh/redis/releases/download/v0.0.1/redis-7.4.2-linux_x86_64.tar.gz) |
+| 7.4.2               | Linux (Alpine) | musl (static) | x86_64 | [Download](https://github.com/jackmarsh/redis/releases/download/v0.0.2/redis-7.4.2-linux_x86_64-musl.tar.gz) |
 
 ## 📦 What's Included
 
@@ -24,17 +25,53 @@ Each `.tar.gz` archive contains the following Redis Stack binaries:
 * `redis-check-aof`
 * `redis-check-rdb`
 
-These are dynamically linked against `glibc` and OpenSSL 3. They are compatible with most modern Linux distributions such as:
+**glibc binaries** are dynamically linked against `glibc` and OpenSSL 3. They are compatible with:
 * Ubuntu 22.04+
 * Debian 11+
 * Fedora 36+
 * Arch Linux
 
-## ⚠️ Alpine Compatibility
+**musl binaries** are statically linked and compatible with:
+* Alpine Linux (all versions)
+* Any musl-based Linux distribution
+* Can also run on glibc systems as a fallback
 
-These binaries **will not run** on Alpine Linux out of the box due to its use of `musl` instead of `glibc`.
+## ✅ Alpine Linux Support
 
-A statically linked version compatible with Alpine is planned for a future release.
+**Alpine-compatible binaries are now available!**
+
+The build system supports both `glibc` (standard Linux) and `musl` (Alpine Linux) builds:
+
+- **glibc builds** (default): Dynamically linked, works on Ubuntu, Debian, Fedora, etc.
+- **musl builds**: Statically linked, works on Alpine Linux and other musl-based systems
+
+### Building musl binaries
+
+#### Required Dependencies
+
+Install the following packages on your build system:
+
+```bash
+sudo apt-get install musl-tools musl-dev
+```
+
+**Note:** Building with TLS support (`BUILD_TLS=yes`) requires static OpenSSL libraries for musl, which are not readily available on Ubuntu/Debian. The musl build currently disables TLS and uses libc malloc instead of jemalloc to ensure a fully static build without external dependencies.
+
+#### Build with Please
+
+```python
+redis_stack(
+    name = "redis_stack_alpine",
+    version = "7.4.2",
+    libc = "musl",
+    visibility = ["PUBLIC"],
+)
+```
+
+Then build:
+```bash
+plz build //binaries/v7.4.2:redis_stack_musl
+```
 
 ## Basic Usage
 
@@ -89,20 +126,7 @@ remote_file(
 )
 ```
 
-## 🔧 Usage
-
-Download and extract the tarball:
-
-```bash
-# Download the binary
-curl -L -o redis-stack.tar.gz https://github.com/jackmarsh/redis/releases/download/v0.0.2/redis-7.4.2-linux_x86_64.tar.gz
-
-# Extract it
-tar -xzf redis-stack.tar.gz -C /path/to/destination
-
-# Run Redis Server
-/path/to/destination/redis-server
-```
+You can find pre-built binaries for supported OS and architecture combinations in the [release page](https://github.com/jackmarsh/redis/releases).
 
 ---
 
